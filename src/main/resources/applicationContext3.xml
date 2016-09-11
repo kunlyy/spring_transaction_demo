@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:task="http://www.springframework.org/schema/task"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+         http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context-4.3.xsd
+         http://www.springframework.org/schema/aop
+         http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+         http://www.springframework.org/schema/tx
+         http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+	<context:property-placeholder location="classpath:jdbc.properties" />
+
+	<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+		<!-- 基本属性 url、user、password -->  
+		<property name="url" value="${jdbc.url}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />
+		<!-- 配置初始化大小、最小、最大 -->
+		<property name="initialSize" value="1" />
+		<property name="minIdle" value="1" />
+		<property name="maxActive" value="20" />
+
+		<!-- 配置获取连接等待超时的时间 -->
+		<property name="maxWait" value="60000" />
+
+		<!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 -->
+		<property name="timeBetweenEvictionRunsMillis" value="60000" />
+
+		<!-- 配置一个连接在池中最小生存的时间，单位是毫秒 -->
+		<property name="minEvictableIdleTimeMillis" value="300000" />
+
+		<property name="validationQuery" value="SELECT 'x'" />
+		<property name="testWhileIdle" value="true" />
+		<property name="testOnBorrow" value="false" />
+		<property name="testOnReturn" value="false" />
+
+		<!-- 打开PSCache，并且指定每个连接上PSCache的大小 -->
+		<property name="poolPreparedStatements" value="true" />
+		<property name="maxPoolPreparedStatementPerConnectionSize"
+			value="20" />
+
+		<!-- 配置监控统计拦截的filters，去掉后监控界面sql无法统计 -->
+		<property name="filters" value="stat" />
+	</bean>
+	
+	<!-- 使用声明式事务配置spring的事务管理 -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+	
+	<!-- 配置事务的通知 -->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<!-- 通常的配置方式都是以update*或者insert*这样的通配符来对事务方法的事务控制 -->
+			<!-- 这里只有一个方法，就写上transfer -->
+			<!-- 
+				propagation		:事务传播行为
+				isolation		:事务的隔离级别
+				read-only		:只读
+				rollback-for	:发生哪些异常回滚
+				no-rollback-for	:发生哪些异常不回滚
+				timeout			:过期信息
+			 -->
+			<tx:method name="transfer" propagation="REQUIRED"/>
+		</tx:attributes>
+	</tx:advice>
+	
+	<!-- aop配置事务的切面 -->
+	<aop:config>
+		<!-- 配置事务的切入点 -->
+		<!-- 定义在service包或者子包里的任意方法的执行
+			第一个*		：方法值为任意
+			service..	：表示service包或者子包
+			第二个*		：方法名为 任意
+			第三个*		：参数为任意
+		  -->
+		<aop:pointcut expression="execution(* com.crk.demo3.service..*.*(..))" id="pointcut1"/>
+		<!-- 配置事务的通知 -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="pointcut1"/>
+	</aop:config>
+
+	
+	<bean id="accountDao" class="com.crk.demo3.dao.impl.AccountDaoImpl">
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+	
+	<bean id="accountService" class="com.crk.demo3.service.impl.AccountServiceImpl">
+		<property name="accountDao" ref="accountDao" />
+	</bean>
+</beans>
